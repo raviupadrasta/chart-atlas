@@ -16,5 +16,5 @@
     "noUncheckedSideEffectImports": true,
     "declaration": true
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "demo"]
 }

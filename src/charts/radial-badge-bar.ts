@@ -1,6 +1,7 @@
 import { createChartRoot } from "../core/chart-root.js";
 import { svgEl, clear, donutSegmentPath } from "../core/svg-utils.js";
 import { bindTooltip } from "../core/tooltip.js";
+import { categoricalColor } from "../theme/tokens.js";
 import type { BaseChartOptions, ChartInstance } from "../core/types.js";
 
 export interface RadialBadgeBarRow {
@@ -85,7 +86,7 @@ export function radialBadgeBarChart(
       if (sweep > 1) {
         const arc = svgEl("path", {
           d: donutSegmentPath(cx, T, ringR + 2, ringR - 2, 0, sweep),
-          fill: theme.categorical[0],
+          fill: categoricalColor(theme, 0),
         });
         root.svg.appendChild(arc);
         cleanups.push(bindTooltip(arc, `${row.label}: ${row.duration} ${durationLabel}`, theme));

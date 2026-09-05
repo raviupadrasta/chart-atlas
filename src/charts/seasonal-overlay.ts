@@ -34,6 +34,10 @@ const WIDTH = 560;
  * outcomes on record, picked out by color. Best/worst/median are computed
  * from the data, not passed in: only which series is "current" is an
  * annotation the caller has to supply, since that's identity, not a statistic.
+ *
+ * "Median" always names a real series (never an interpolated value, since it
+ * needs a label) — for an even-sized set this is the upper of the two middle
+ * series once sorted by value, not an average of them.
  */
 export function seasonalOverlayChart(
   container: HTMLElement,
@@ -89,6 +93,11 @@ export function seasonalOverlayChart(
 
     const xTickLabels = currentOptions.xTickLabels;
     if (xTickLabels && xTickLabels.length > 0) {
+      // Each label marks the start of its slice of the cycle (n evenly-sized
+      // slices for n labels) — label 0 sits at the left edge, label i at
+      // fraction i/n of the way across. For 6 labels over a 12-month year this
+      // is exactly the same fraction as i*2/12 (bimonthly) — do not hand-derive
+      // that fraction differently elsewhere (see rSeasonalOverlay in the atlas).
       xTickLabels.forEach((label, i) => {
         const px = x((i / xTickLabels.length) * (maxLen - 1));
         root.svg.appendChild(
