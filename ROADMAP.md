@@ -5,7 +5,9 @@ proving the architecture (shared theme, unified `ChartInstance` lifecycle,
 resize/theme reactivity) across three different rendering patterns — a plain
 scale-based chart, a `d3-hierarchy` layout, and a `d3-sankey` layout. It held
 up: the next 10 charts (the consulting-idiom set) reused that architecture
-without changes to `core/`.
+without changes to `core/`. Two more (seasonal overlay, radial-badge bar) came
+from a pair of real dashboard charts a user pointed at directly — same result:
+zero `core/` changes.
 
 ## Built
 
@@ -24,11 +26,15 @@ without changes to `core/`.
 | `impactEffortMatrixChart` | Same shared quadrant-scatter helper, linear axes — the reuse the two were designed together for |
 | `bumpChart` | `scalePoint` + inverted-rank `scaleLinear`, no new dependency |
 | `driverTreeChart` | First use of `d3-hierarchy`'s `tree()` (node-link box diagram, not an area/bar encoding) |
+| `seasonalOverlayChart` | Best/worst/median computed FROM the data (not passed in) by comparing every series at the same index position the caller's "current" series has reached — only identity ("which series is current") is a caller annotation |
+| `radialBadgeBarChart` | Two linked metrics per category with no second axis — a bar (status-bucketed by severity, relative to the set's own max) plus a `donutSegmentPath` progress ring (duration, relative to the set's own max) above it |
 
 **Zero new npm dependencies** were needed for any of the 10 consulting
-charts — `scaleLog`/`scalePoint` (d3-scale), `treemapSliceDice`/`tree()`
-(d3-hierarchy), and `cumsum` (d3-array) were already installed, just unused
-until now.
+charts, or for the 2 charts after them — `scaleLog`/`scalePoint` (d3-scale),
+`treemapSliceDice`/`tree()` (d3-hierarchy), and `cumsum` (d3-array) were
+already installed, just unused until now; the seasonal-overlay and
+radial-badge-bar charts needed nothing beyond `d3-scale` and the existing
+`smoothPath`/`donutSegmentPath` primitives in `core/svg-utils.ts`.
 
 **New shared infrastructure:** `src/core/quadrant-scatter.ts` —
 `renderQuadrantScatter()`, a "2×2 bubble matrix" renderer shared by
@@ -94,7 +100,7 @@ not "invent a layout algorithm."
 - **A KDE helper** (`src/core/density.ts`, not written yet) is shared
   infrastructure for violin + ridgeline — build it once, before either chart,
   not twice.
-- **`src/core/legend.ts` is written but still unused.** None of the 13 built
+- **`src/core/legend.ts` is written but still unused.** None of the 15 built
   charts has 2+ series needing a legend box yet (`bumpChart` gets away with
   direct end-labels since it only has a handful of series). Treat it as
   unverified scaffolding until the first chart that actually needs one calls it.
@@ -102,3 +108,15 @@ not "invent a layout algorithm."
   (`estimateTextWidth`, the same conservative estimate `treemapChart` uses),
   not a measured `getBBox()`. Fine for short labels; a very long driver label
   could still look cramped. Worth revisiting if that comes up in practice.
+- **`radialBadgeBarChart`'s ring sweep is capped at 0.97×360°**, never a true
+  full circle. `donutSegmentPath`'s start/end points coincide at exactly 360°
+  and the arc collapses to nothing — the cap trades an invisible "wrong"
+  answer for a visible, correct-enough one at the top of the scale. Same
+  reasoning applies to any future chart built on `donutSegmentPath` for a
+  0-100%-style progress ring.
+- **`radialBadgeBarChart`'s severity buckets and `seasonalOverlayChart`'s
+  best/worst/median are both relative to the dataset passed in**, not fixed
+  thresholds — a bar colored `status.critical` in one chart instance and one
+  colored the same in another aren't necessarily comparable in absolute terms.
+  Documented in each chart's own JSDoc; flagging here since it's easy to forget
+  when skimming the "Built" table.

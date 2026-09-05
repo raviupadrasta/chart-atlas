@@ -45,3 +45,15 @@ export type { BumpData, BumpSeries, BumpDataPoint, BumpOptions } from "./charts/
 
 export { driverTreeChart } from "./charts/driver-tree.js";
 export type { DriverTreeData, DriverNode, DriverTreeOptions } from "./charts/driver-tree.js";
+
+// Other real-world idioms
+export { seasonalOverlayChart } from "./charts/seasonal-overlay.js";
+export type {
+  SeasonalOverlayData,
+  SeasonalOverlaySeries,
+  SeasonalOverlayEmphasis,
+  SeasonalOverlayOptions,
+} from "./charts/seasonal-overlay.js";
+
+export { radialBadgeBarChart } from "./charts/radial-badge-bar.js";
+export type { RadialBadgeBarData, RadialBadgeBarRow, RadialBadgeBarOptions } from "./charts/radial-badge-bar.js";

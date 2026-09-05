@@ -12,6 +12,8 @@ import {
   impactEffortMatrixChart,
   bumpChart,
   driverTreeChart,
+  seasonalOverlayChart,
+  radialBadgeBarChart,
   type BulletData,
   type TreemapData,
   type SankeyData,
@@ -25,6 +27,8 @@ import {
   type ImpactEffortData,
   type BumpData,
   type DriverTreeData,
+  type SeasonalOverlayData,
+  type RadialBadgeBarData,
 } from "../src/index.js";
 
 let mode: "light" | "dark" = "light";
@@ -168,41 +172,109 @@ const driverTreeData: DriverTreeData = {
   ],
 };
 
-const charts = [
-  bulletChart(document.getElementById("bullet")!, bulletData, { theme: mode }),
-  treemapChart(document.getElementById("treemap")!, treemapData, { theme: mode, height: 220 }),
-  sankeyChart(document.getElementById("sankey")!, sankeyData, { theme: mode, height: 200 }),
-  waterfallChart(document.getElementById("waterfall")!, waterfallData, { theme: mode, height: 200 }),
-  tornadoChart(document.getElementById("tornado")!, tornadoData, { theme: mode, height: 200 }),
-  footballFieldChart(document.getElementById("football-field")!, footballFieldData, {
-    theme: mode,
-    height: 200,
-    referenceValue: 45,
-    referenceLabel: "Current price",
-  }),
-  concentrationCurveChart(document.getElementById("concentration-curve")!, concentrationCurveData, { theme: mode, height: 220 }),
-  marimekkoChart(document.getElementById("marimekko")!, marimekkoData, { theme: mode, height: 220 }),
-  costCurveChart(document.getElementById("cost-curve")!, costCurveData, { theme: mode, height: 220, volumeLabel: "kt CO2e" }),
-  bcgMatrixChart(document.getElementById("bcg-matrix")!, bcgMatrixData, { theme: mode, height: 240 }),
-  impactEffortMatrixChart(document.getElementById("impact-effort")!, impactEffortData, { theme: mode, height: 220 }),
-  bumpChart(document.getElementById("bump")!, bumpData, { theme: mode, height: 200 }),
-  driverTreeChart(document.getElementById("driver-tree")!, driverTreeData, { theme: mode, height: 220 }),
+// Small seeded PRNG (demo data only — the library itself never generates data).
+function mulberry32(seed: number) {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const seasonalOverlayData: SeasonalOverlayData = (() => {
+  const startYear = 2009;
+  const curYear = 2026;
+  const fullLength = 48;
+  const curLength = Math.round(fullLength * 0.67);
+  const series: SeasonalOverlayData = [];
+  for (let year = startYear; year <= curYear; year++) {
+    const rnd = mulberry32(2000 + (year - startYear) * 97);
+    const length = year === curYear ? curLength : fullLength;
+    const drift = (rnd() - 0.42) * 0.55;
+    let v = 100;
+    const points = [v];
+    for (let i = 1; i < length; i++) {
+      v += (rnd() - 0.5) * 3.4 + drift;
+      points.push(v);
+    }
+    series.push({ label: String(year), points, ...(year === curYear ? { emphasis: "current" as const } : {}) });
+  }
+  return series;
+})();
+
+const radialBadgeBarData: RadialBadgeBarData = [
+  { label: "Broad market", magnitude: -2.45, duration: 704 },
+  { label: "Large cap", magnitude: -7.71, duration: 241 },
+  { label: "Large-mid blend", magnitude: -5.45, duration: 241 },
+  { label: "Small cap", magnitude: -0.67, duration: 3 },
+  { label: "Mid cap", magnitude: 0, duration: 0 },
 ];
 
+// Each chart instance keeps its own concretely-typed const rather than living in one
+// array — a heterogeneous array of ChartInstance<A,...> | ChartInstance<B,...> | ...
+// widens every element to the intersection of all their .update() signatures when
+// indexed, which rejects every real call. Named consts keep each update() call
+// checked against its own chart's actual data/options type.
+const bulletC = bulletChart(document.getElementById("bullet")!, bulletData, { theme: mode });
+const treemapC = treemapChart(document.getElementById("treemap")!, treemapData, { theme: mode, height: 220 });
+const sankeyC = sankeyChart(document.getElementById("sankey")!, sankeyData, { theme: mode, height: 200 });
+const waterfallC = waterfallChart(document.getElementById("waterfall")!, waterfallData, { theme: mode, height: 200 });
+const tornadoC = tornadoChart(document.getElementById("tornado")!, tornadoData, { theme: mode, height: 200 });
+const footballFieldC = footballFieldChart(document.getElementById("football-field")!, footballFieldData, {
+  theme: mode,
+  height: 200,
+  referenceValue: 45,
+  referenceLabel: "Current price",
+});
+const concentrationCurveC = concentrationCurveChart(
+  document.getElementById("concentration-curve")!,
+  concentrationCurveData,
+  { theme: mode, height: 220 },
+);
+const marimekkoC = marimekkoChart(document.getElementById("marimekko")!, marimekkoData, { theme: mode, height: 220 });
+const costCurveC = costCurveChart(document.getElementById("cost-curve")!, costCurveData, {
+  theme: mode,
+  height: 220,
+  volumeLabel: "kt CO2e",
+});
+const bcgMatrixC = bcgMatrixChart(document.getElementById("bcg-matrix")!, bcgMatrixData, { theme: mode, height: 240 });
+const impactEffortC = impactEffortMatrixChart(document.getElementById("impact-effort")!, impactEffortData, {
+  theme: mode,
+  height: 220,
+});
+const bumpC = bumpChart(document.getElementById("bump")!, bumpData, { theme: mode, height: 200 });
+const driverTreeC = driverTreeChart(document.getElementById("driver-tree")!, driverTreeData, {
+  theme: mode,
+  height: 220,
+});
+const seasonalOverlayC = seasonalOverlayChart(document.getElementById("seasonal-overlay")!, seasonalOverlayData, {
+  theme: mode,
+  height: 210,
+  xTickLabels: ["Jan", "Mar", "May", "Jul", "Sep", "Nov"],
+});
+const radialBadgeBarC = radialBadgeBarChart(document.getElementById("radial-badge-bar")!, radialBadgeBarData, {
+  theme: mode,
+  height: 190,
+});
+
 const updaters = [
-  () => charts[0].update(bulletData, { theme: mode }),
-  () => charts[1].update(treemapData, { theme: mode }),
-  () => charts[2].update(sankeyData, { theme: mode }),
-  () => charts[3].update(waterfallData, { theme: mode }),
-  () => charts[4].update(tornadoData, { theme: mode }),
-  () => charts[5].update(footballFieldData, { theme: mode }),
-  () => charts[6].update(concentrationCurveData, { theme: mode }),
-  () => charts[7].update(marimekkoData, { theme: mode }),
-  () => charts[8].update(costCurveData, { theme: mode }),
-  () => charts[9].update(bcgMatrixData, { theme: mode }),
-  () => charts[10].update(impactEffortData, { theme: mode }),
-  () => charts[11].update(bumpData, { theme: mode }),
-  () => charts[12].update(driverTreeData, { theme: mode }),
+  () => bulletC.update(bulletData, { theme: mode }),
+  () => treemapC.update(treemapData, { theme: mode }),
+  () => sankeyC.update(sankeyData, { theme: mode }),
+  () => waterfallC.update(waterfallData, { theme: mode }),
+  () => tornadoC.update(tornadoData, { theme: mode }),
+  () => footballFieldC.update(footballFieldData, { theme: mode }),
+  () => concentrationCurveC.update(concentrationCurveData, { theme: mode }),
+  () => marimekkoC.update(marimekkoData, { theme: mode }),
+  () => costCurveC.update(costCurveData, { theme: mode }),
+  () => bcgMatrixC.update(bcgMatrixData, { theme: mode }),
+  () => impactEffortC.update(impactEffortData, { theme: mode }),
+  () => bumpC.update(bumpData, { theme: mode }),
+  () => driverTreeC.update(driverTreeData, { theme: mode }),
+  () => seasonalOverlayC.update(seasonalOverlayData, { theme: mode }),
+  () => radialBadgeBarC.update(radialBadgeBarData, { theme: mode }),
 ];
 
 document.getElementById("theme-toggle")!.addEventListener("click", () => {
