@@ -1,19 +1,41 @@
 # Roadmap
 
-This is a **vertical slice**, not the finished library: three chart types built
-to prove the architecture (shared theme, unified `ChartInstance` lifecycle,
-resize/theme reactivity) actually holds up across three different rendering
-patterns — a plain scale-based chart, a `d3-hierarchy` layout, and a `d3-sankey`
-layout. Before adding more charts, that architecture should get used for a
-while and adjusted if it's wrong.
+The first three charts (bullet, treemap, sankey) were a **vertical slice**
+proving the architecture (shared theme, unified `ChartInstance` lifecycle,
+resize/theme reactivity) across three different rendering patterns — a plain
+scale-based chart, a `d3-hierarchy` layout, and a `d3-sankey` layout. It held
+up: the next 10 charts (the consulting-idiom set) reused that architecture
+without changes to `core/`.
 
 ## Built
 
-| Chart | Pattern it proves |
+| Chart | Pattern it proves / reuses |
 |---|---|
 | `bulletChart` | Plain `d3-scale`, no external layout module |
 | `treemapChart` | `d3-hierarchy` (`treemap` + `treemapSquarify`), label-fit heuristic, categorical-cap folding |
 | `sankeyChart` | `d3-sankey` layout, custom ribbon path (not d3-sankey's default stroked centerline) |
+| `waterfallChart` | Running-cumulative baseline; `d3-scale` only |
+| `tornadoChart` | Sort-by-impact + status-color (good/critical) split around a base case |
+| `footballFieldChart` | Floating range bars + optional reference line |
+| `concentrationCurveChart` | `d3-array` `cumsum` for a Pareto/Lorenz-style cumulative curve |
+| `marimekkoChart` | Reuses `TreemapNode`'s data shape and `foldToOther`/`sumValue` helpers; swaps `treemapSquarify` for `treemapSliceDice` — same `d3-hierarchy` dependency, different tiling |
+| `costCurveChart` | `d3-array` `cumsum` for cumulative-width (MACC-style) bars |
+| `bcgMatrixChart` | New shared `core/quadrant-scatter.ts` helper; log-scale + reversed x-axis |
+| `impactEffortMatrixChart` | Same shared quadrant-scatter helper, linear axes — the reuse the two were designed together for |
+| `bumpChart` | `scalePoint` + inverted-rank `scaleLinear`, no new dependency |
+| `driverTreeChart` | First use of `d3-hierarchy`'s `tree()` (node-link box diagram, not an area/bar encoding) |
+
+**Zero new npm dependencies** were needed for any of the 10 consulting
+charts — `scaleLog`/`scalePoint` (d3-scale), `treemapSliceDice`/`tree()`
+(d3-hierarchy), and `cumsum` (d3-array) were already installed, just unused
+until now.
+
+**New shared infrastructure:** `src/core/quadrant-scatter.ts` —
+`renderQuadrantScatter()`, a "2×2 bubble matrix" renderer shared by
+`bcgMatrixChart` and `impactEffortMatrixChart`. It only knows pixel geometry
+(divider lines, quadrant label positions); axis semantics (log vs. linear,
+reversed vs. not, what each quadrant is *called*) stay in the two call sites.
+A third quadrant-matrix chart should reuse this rather than reimplementing it.
 
 ## Not built yet, in rough priority order
 
@@ -72,7 +94,11 @@ not "invent a layout algorithm."
 - **A KDE helper** (`src/core/density.ts`, not written yet) is shared
   infrastructure for violin + ridgeline — build it once, before either chart,
   not twice.
-- **`src/core/legend.ts` is written but unused.** None of the three slice
-  charts has 2+ series needing one, so it has zero test coverage and zero
-  real usage — treat it as unverified scaffolding, not working
-  infrastructure, until the first chart that needs a legend actually calls it.
+- **`src/core/legend.ts` is written but still unused.** None of the 13 built
+  charts has 2+ series needing a legend box yet (`bumpChart` gets away with
+  direct end-labels since it only has a handful of series). Treat it as
+  unverified scaffolding until the first chart that actually needs one calls it.
+- **`driverTreeChart`'s box width is a text-length heuristic**
+  (`estimateTextWidth`, the same conservative estimate `treemapChart` uses),
+  not a measured `getBBox()`. Fine for short labels; a very long driver label
+  could still look cramped. Worth revisiting if that comes up in practice.

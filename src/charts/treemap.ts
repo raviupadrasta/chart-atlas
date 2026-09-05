@@ -133,8 +133,12 @@ export function treemapChart(
   };
 }
 
-/** Fold top-level children past the categorical cap into a single "Other" bucket. */
-function foldToOther(data: TreemapData, cap: number): TreemapData {
+/**
+ * Fold top-level children past the categorical cap into a single "Other"
+ * bucket. Exported for reuse by marimekkoChart, which shares this exact
+ * hierarchical data shape and the same 8-slot categorical-column cap.
+ */
+export function foldToOther(data: TreemapData, cap: number): TreemapData {
   if (!data.children || data.children.length <= cap) return data;
   const kept = data.children.slice(0, cap - 1);
   const rest = data.children.slice(cap - 1);
@@ -142,7 +146,7 @@ function foldToOther(data: TreemapData, cap: number): TreemapData {
   return { ...data, children: [...kept, { name: "Other", value: otherValue }] };
 }
 
-function sumValue(node: TreemapNode): number {
+export function sumValue(node: TreemapNode): number {
   if (!node.children) return node.value ?? 0;
   return node.children.reduce((acc, c) => acc + sumValue(c), 0);
 }
