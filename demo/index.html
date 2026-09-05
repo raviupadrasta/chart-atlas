@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>chart-atlas demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #f9f9f7;
+        color: #0b0b0b;
+        font-family: system-ui, sans-serif;
+      }
+      h1 { font-size: 1.3rem; margin: 0 0 4px; }
+      p.sub { color: #52514e; margin: 0 0 28px; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 24px;
+      }
+      .card {
+        border: 1px solid rgba(11,11,11,0.10);
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .card.wide { grid-column: 1 / -1; }
+      .card h2 { font-size: 0.95rem; margin: 0 0 12px; }
+      button {
+        font: inherit;
+        padding: 6px 14px;
+        border-radius: 6px;
+        border: 1px solid rgba(11,11,11,0.15);
+        background: #fff;
+        cursor: pointer;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>chart-atlas — vertical slice</h1>
+    <p class="sub">Three chart types proving the shared theme + lifecycle: a simple scale-based chart, a d3-hierarchy chart, and a d3-sankey chart.</p>
+    <button id="theme-toggle">Toggle light/dark</button>
+    <div class="grid">
+      <div class="card"><h2>Bullet chart</h2><div id="bullet"></div></div>
+      <div class="card"><h2>Treemap</h2><div id="treemap"></div></div>
+      <div class="card wide"><h2>Sankey diagram</h2><div id="sankey"></div></div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
