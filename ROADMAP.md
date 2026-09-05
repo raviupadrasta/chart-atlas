@@ -72,3 +72,7 @@ not "invent a layout algorithm."
 - **A KDE helper** (`src/core/density.ts`, not written yet) is shared
   infrastructure for violin + ridgeline — build it once, before either chart,
   not twice.
+- **`src/core/legend.ts` is written but unused.** None of the three slice
+  charts has 2+ series needing one, so it has zero test coverage and zero
+  real usage — treat it as unverified scaffolding, not working
+  infrastructure, until the first chart that needs a legend actually calls it.

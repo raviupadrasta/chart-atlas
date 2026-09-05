@@ -20,7 +20,7 @@ const treemapData: TreemapData = {
 
 const sankeyData: SankeyData = {
   nodes: [
-    { id: "visitors", label: "Visitors", colorIndex: undefined },
+    { id: "visitors", label: "Visitors" },
     { id: "signedup", label: "Signed up", colorIndex: 0 },
     { id: "bounced", label: "Bounced" },
     { id: "purchased", label: "Purchased", colorIndex: 2 },
