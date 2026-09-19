@@ -31,6 +31,8 @@ import {
   type RadialBadgeBarData,
 } from "../src/index.js";
 
+import { mountRecommender } from "./recommender.js";
+
 let mode: "light" | "dark" = "light";
 
 const bulletData: BulletData = [
@@ -259,7 +261,10 @@ const radialBadgeBarC = radialBadgeBarChart(document.getElementById("radial-badg
   height: 190,
 });
 
+const refreshRecommender = mountRecommender(document.getElementById("recommender")!, () => mode);
+
 const updaters = [
+  () => refreshRecommender(),
   () => bulletC.update(bulletData, { theme: mode }),
   () => treemapC.update(treemapData, { theme: mode }),
   () => sankeyC.update(sankeyData, { theme: mode }),
