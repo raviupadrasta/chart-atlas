@@ -57,3 +57,7 @@ export type {
 
 export { radialBadgeBarChart } from "./charts/radial-badge-bar.js";
 export type { RadialBadgeBarData, RadialBadgeBarRow, RadialBadgeBarOptions } from "./charts/radial-badge-bar.js";
+
+// Chart catalog: what each chart is for, needs, and when not to use it
+export { CATALOG, PLANNED_CHARTS } from "./catalog/index.js";
+export type { CatalogEntry, InsightType, Purpose, Familiarity, Encoding, StructureFlag } from "./catalog/index.js";
