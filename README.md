@@ -100,6 +100,45 @@ Seven of the fifteen charts can be fed this way so far (concentration curve, tre
 seasonal overlay, bump, football field, tornado, bullet); the recommender only proposes
 charts it can draw.
 
+## Export to other plotting libraries
+
+The recommender decides *which* chart; a target library can draw it. `recommendAndExport` runs the same profile, recommendation and data mapping as `recommendAndRender`, then hands back a chart for Vega-Lite, Observable Plot, matplotlib, seaborn, Plotly or Apache ECharts instead of drawing SVG:
+
+```ts
+import { recommendAndExport } from "chart-atlas";
+
+const out = recommendAndExport(rows, "matplotlib"); // or "vega-lite" | "observable-plot" | "seaborn" | "plotly" | "echarts"
+out.output?.body;      // Python source (a JSON object for Vega-Lite, JavaScript for Observable Plot and ECharts)
+out.recommendation;    // the same insight, rationale and rejected alternatives
+out.caveats;           // also written into the exported code as comments / subtitle
+```
+
+The exported code is self-contained: data is embedded, colours come from the atlas palette. Vega-Lite ships JSON, Observable Plot and ECharts an ES module; the Python targets need `matplotlib` and `pandas` (plus `seaborn`), or just `plotly`. The six targets share one small spec (`toSpec`), so a chart is described once. Treemap has no equivalent in Vega-Lite, Observable Plot, matplotlib, seaborn or Plotly, so it exports as sorted bars there and says so; ECharts draws a real treemap.
+
+![One recommendation (tornado) exported to six libraries with one shared style](docs/images/export-sample.png)
+
+### Styling exported charts
+
+All six targets read one file, `src/export/style.ts`, for fonts, type sizes, margins, mark sizes and colours, so the same recommendation looks the same in every library. Exports use the light theme on a plain white background. The Observable Plot export returns an HTML `<figure>` (title, notes and legend as styled HTML around the Plot SVG) so its text matches the other targets.
+
+**Change the font.** Edit `font` in `src/export/style.ts`:
+
+```ts
+font: {
+  family: "system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif", // Vega-Lite, Observable Plot, ECharts
+  familyPython: ["Helvetica", "Arial", "DejaVu Sans"],                       // matplotlib, seaborn, Plotly
+  size: { title: 15, subtitle: 12, axisTitle: 12, tick: 11, legend: 11 },
+}
+```
+
+- Use a font stack for `family` (no double quotes inside it) and a list of concrete names for `familyPython`; Python uses the first one installed and falls back down the list.
+- A custom font must be available where the chart is drawn. On the web, load it with `@font-face` or a Google Fonts `<link>`. In Python, install it, or register a file with `matplotlib.font_manager.fontManager.addfont("MyFont.ttf")` before drawing (matplotlib and seaborn); Plotly needs it installed on the viewer's machine.
+- Rebuild or rerun; nothing else needs to change.
+
+**Change sizes and spacing.** `space` (chart width, row height, margins) and `mark` (line width, point size, bar thickness) in the same file.
+
+**Change colours.** Edit `src/theme/tokens.ts` (categorical slots, ink, grid, and the `neutral` tokens for muted lines and bullet bands), then run `npm run validate-palette "<hex list>"` on the categorical colours. `test/export-style.test.ts` fails if any exporter hardcodes a colour or font of its own.
+
 ## Status
 
 | Piece | State |
@@ -110,11 +149,13 @@ charts it can draw.
 | Data profiler with ranked views, findings and caveats (`src/profile/`) | Built (columns, six view kinds); structure detection for hierarchy, flow and paired data not yet |
 | Recommender: rules, scoring, rationale, "table or number" answers (`src/recommend/`) | First version built; weights untuned |
 | Mapping a recommendation into a chart's data shape and drawing it (`recommendAndRender`; 7 of the 15 charts) | Built; `npm run dev` has a Recommender card to try it |
+| Export a recommendation to Vega-Lite, Observable Plot, ECharts, matplotlib, seaborn or Plotly (`recommendAndExport`, `src/export/`), all sharing one style file (`src/export/style.ts`) | Built, tested; 7 of the 15 charts |
 | Baseline charts (bar, line, scatter, histogram, ECDF) | Planned; the catalog already names them as gaps |
+| "Focus versus peers" chart (one series over a band of many, plus a rank panel), for cases like one fund among 45 | Designed, not built; see [NEXT.md](./NEXT.md) |
 | Claude skill that frames the insight and writes the rationale | Planned |
 | npm package, docs site | Not started |
 
-The chart backlog is in [ROADMAP.md](./ROADMAP.md).
+What to do next is in [NEXT.md](./NEXT.md). The chart backlog is in [ROADMAP.md](./ROADMAP.md).
 
 ## Design principles and sources
 

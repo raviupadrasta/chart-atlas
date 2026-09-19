@@ -42,6 +42,13 @@ export interface ThemeTokens {
     serious: string;
     critical: string;
   };
+  /** Non-data marks: de-emphasised lines (history, references) and the nested bands behind a bullet chart. */
+  neutral: {
+    muted: string;
+    bandLight: string;
+    bandMid: string;
+    bandDark: string;
+  };
 }
 
 const light: ThemeTokens = {
@@ -73,6 +80,7 @@ const light: ThemeTokens = {
     neg: "#c23837", negSoft: "#e9807e", negSofter: "#f6c9c8",
   },
   status: { good: "#0ca30c", warning: "#fab219", serious: "#ec835a", critical: "#d03b3b" },
+  neutral: { muted: "#b4b2a9", bandLight: "#eeede8", bandMid: "#dddbd3", bandDark: "#c9c7be" },
 };
 
 const dark: ThemeTokens = {
@@ -95,6 +103,7 @@ const dark: ThemeTokens = {
   },
   // Status colors are fixed — never themed, same both modes.
   status: light.status,
+  neutral: { muted: "#5c5b57", bandLight: "#2a2a28", bandMid: "#353533", bandDark: "#42423f" },
 };
 
 export const THEMES: Record<ThemeMode, ThemeTokens> = { light, dark };

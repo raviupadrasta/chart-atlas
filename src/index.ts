@@ -81,3 +81,7 @@ export type { CatalogEntry, InsightType, Purpose, Familiarity, Encoding, Structu
 // The recommender: profile + context -> chart, table or number, with reasons
 export { recommend, resolveContext, recommendAndRender, mapView } from "./recommend/index.js";
 export type { Answer, Candidate, Context, Recommendation, Rejection, ResolvedContext, ScoreParts, RecommendOptions, RenderOptions, Rendered, Mapped } from "./recommend/index.js";
+
+// Export a recommendation to other plotting libraries
+export { recommendAndExport, emit, toSpec, toVegaLite, toObservablePlot, toPython, toPlotly, toEcharts, TARGETS } from "./export/index.js";
+export type { ExportOptions, Exported, Output, ChartSpec, Target } from "./export/index.js";
