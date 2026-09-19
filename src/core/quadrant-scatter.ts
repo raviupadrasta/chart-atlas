@@ -87,9 +87,13 @@ export function renderQuadrantScatter(
     svg.appendChild(text);
   }
 
-  const maxSize = Math.max(1, ...points.map((p) => p.size ?? 1));
+  // Radius is sqrt-scaled from ZERO so bubble area is proportional to size (a 4x size reads as 4x
+  // area). An earlier `4 + 14*sqrt(...)` gave every bubble a minimum radius, which flattened the
+  // differences between small bubbles (lie factor ~0.67 at a 4x gap). Unsized points count as 1.
+  const maxSize = Math.max(...points.map((p) => p.size ?? 1), Number.MIN_VALUE);
+  const R_MAX = 18;
   for (const p of points) {
-    const r = 4 + 14 * Math.sqrt((p.size ?? 1) / maxSize);
+    const r = R_MAX * Math.sqrt(Math.max(0, p.size ?? 1) / maxSize);
     const color = p.colorIndex != null ? categoricalColor(theme, p.colorIndex) : theme.categorical[0];
     const cx = xScale(p.x);
     const cy = yScale(p.y);
