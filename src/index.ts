@@ -58,7 +58,7 @@ export type {
 export { radialBadgeBarChart } from "./charts/radial-badge-bar.js";
 export type { RadialBadgeBarData, RadialBadgeBarRow, RadialBadgeBarOptions } from "./charts/radial-badge-bar.js";
 
-// Data profiler: columns, ranked candidate views, findings and caveats
+// Recommender inputs: the data profiler and the chart catalog
 export { profileDataset, profileColumn } from "./profile/index.js";
 export type {
   Row,
@@ -75,7 +75,9 @@ export type {
   FindingType,
   Caveat,
 } from "./profile/index.js";
-
-// Chart catalog: what each chart is for, needs, and when not to use it
 export { CATALOG, PLANNED_CHARTS } from "./catalog/index.js";
 export type { CatalogEntry, InsightType, Purpose, Familiarity, Encoding, StructureFlag } from "./catalog/index.js";
+
+// The recommender: profile + context -> chart, table or number, with reasons
+export { recommend, resolveContext, recommendAndRender, mapView } from "./recommend/index.js";
+export type { Answer, Candidate, Context, Recommendation, Rejection, ResolvedContext, ScoreParts, RecommendOptions, RenderOptions, Rendered, Mapped } from "./recommend/index.js";
