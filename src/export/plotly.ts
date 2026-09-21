@@ -35,6 +35,11 @@ function traces(l: Layer, seriesIndex: Map<string, number>): string[] {
       const x1 = py(l.data.map((d) => (d.x1 as number) - (d.x0 as number)));
       return [`fig.add_trace(go.Bar(orientation="h", y=${col(l.data, "y")}, x=${x1}, base=${col(l.data, "x0")}, width=${w}, marker_color=${tone(l.tone)}, showlegend=False, hoverinfo="y"))`];
     }
+    case "bin": {
+      const mid = py(l.data.map((d) => ((d.x0 as number) + (d.x1 as number)) / 2));
+      const width = py(l.data.map((d) => (d.x1 as number) - (d.x0 as number)));
+      return [`fig.add_trace(go.Bar(x=${mid}, y=${col(l.data, "y")}, width=${width}, marker=dict(color=${tone(l.tone)}, line=dict(color=${py(color.surface)}, width=1)), showlegend=False, hoverinfo="y"))`];
+    }
     case "tick":
       return [`fig.add_trace(go.Scatter(x=${col(l.data, "x")}, y=${col(l.data, "y")}, mode="markers", marker=dict(symbol="line-ns", size=${mark.tickLength}, line=dict(color=${tone(l.tone)}, width=${mark.tickWidth})), showlegend=False, hoverinfo="x"))`];
     case "rule":
@@ -46,6 +51,7 @@ function axis(spec: ChartSpec, name: "x" | "y"): string[] {
   const a = spec[name];
   const opts: string[] = [`title_text=${py(a.title ?? "")}`, `showgrid=${gridAxes(spec)[name] ? "True" : "False"}`, `gridcolor=${py(color.grid)}`, `gridwidth=${mark.gridWidth}`, `title_font_size=${font.size.axisTitle}`, `linecolor=${py(color.grid)}`, `zeroline=False`];
   if (a.kind === "category") opts.push(`type="category"`, `categoryorder="array"`, `categoryarray=${py(a.order ?? [])}`);
+  if (a.kind === "category" && a.order && a.tickEvery) opts.push(`tickmode="array"`, `tickvals=${py(a.order.filter((_, i) => i % a.tickEvery! === 0))}`);
   if (name === "y" && a.kind === "category") opts.push(`autorange="reversed"`);
   else if (a.reverse) opts.push(`autorange="reversed"`);
   if (a.kind === "linear" && a.zero) opts.push(`rangemode="tozero"`);

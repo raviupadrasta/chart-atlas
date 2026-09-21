@@ -18,6 +18,7 @@ function axis(a: Axis, horizontalBars: boolean, values: number[] = []): Json {
   };
   if (a.kind === "category") {
     Object.assign(out, { type: "category", data: a.order ?? [], boundaryGap: horizontalBars });
+    if (a.tickEvery) out.axisLabel = { ...(out.axisLabel as Json), interval: a.tickEvery - 1 };
     if (horizontalBars) out.inverse = true; // first category at the top
   } else {
     out.type = "value";
@@ -39,6 +40,13 @@ const RANGE_SRC = (height: string) =>
       const end = api.coord([api.value(2), api.value(0)]);
       const h = api.size([0, 1])[1] * ${height};
       return { type: "rect", shape: { x: Math.min(start[0], end[0]), y: start[1] - h / 2, width: Math.abs(end[0] - start[0]), height: h }, style: { fill: api.visual("color") } };
+    }`;
+
+const BIN_FN = "__bin__";
+const BIN_SRC = `(params, api) => {
+      const a = api.coord([api.value(0), api.value(2)]);
+      const b = api.coord([api.value(1), 0]);
+      return { type: "rect", shape: { x: a[0] + 0.5, y: a[1], width: Math.max(0, b[0] - a[0] - 1), height: b[1] - a[1] }, style: { fill: api.visual("color") } };
     }`;
 
 const pairs = (rows: Datum[]) => rows.map((d) => [d.x, d.y]);
@@ -76,6 +84,8 @@ function series(l: Layer, i: number, seriesIndex: Map<string, number>, spec: Cha
         },
       ];
     }
+    case "bin":
+      return [{ type: "custom", name: `bin-${i}`, renderItem: BIN_FN, itemStyle: { color: tone(l.tone) }, encode: { x: [0, 1], y: 2, tooltip: [0, 1, 2] }, data: l.data.map((d) => [d.x0, d.x1, d.y]) }];
     case "tick":
       return [{ type: "scatter", name: `tick-${i}`, data: l.data.map((d) => [d.x, d.y]), symbol: "rect", symbolSize: [mark.tickWidth, mark.tickLength], itemStyle: { color: tone(l.tone) }, z: 5 }];
     case "rule":
@@ -122,7 +132,7 @@ function buildOption(spec: ChartSpec): Json {
 
 /** Runnable JavaScript (ES module) exporting an Apache ECharts `option`: pass it to `chart.setOption(option)`. */
 export function toEcharts(spec: ChartSpec): string {
-  const json = JSON.stringify(buildOption(spec), null, 2).replace(new RegExp(`"${RANGE_FN}([0-9.]+)"`, "g"), (_, h: string) => RANGE_SRC(h));
+  const json = JSON.stringify(buildOption(spec), null, 2).replace(new RegExp(`"${RANGE_FN}([0-9.]+)"`, "g"), (_, h: string) => RANGE_SRC(h)).replace(`"${BIN_FN}"`, BIN_SRC);
   return [
     `// ${spec.title}`,
     ...spec.notes.map((n) => `// Note: ${n}`),

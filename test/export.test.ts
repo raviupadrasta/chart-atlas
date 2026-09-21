@@ -17,6 +17,12 @@ const CASES: Mapped[] = [
   mapped("football-field", [{ label: "DCF", low: 41, high: 58 }, { label: "Comps", low: 45, high: 53 }]),
   mapped("tornado", [{ label: "Price", low: 60, high: 140, base: 100 }, { label: "Cost", low: 80, high: 115, base: 100 }]),
   mapped("bullet", [{ label: "Revenue", ranges: [56, 72], actual: 71, target: 80 }]),
+  mapped("bar", [{ label: "North", value: 500 }, { label: "South", value: 300 }, { label: "East", value: -20 }]),
+  mapped("line", { x: months, series: [{ label: "Sales", values: [3, 4, 5, 6] }] }, { yLabel: "Sales" }),
+  mapped("line", { x: months, series: [{ label: "A", values: [3, null, 5, 6] }, { label: "B", values: [1, 2, 3, 4] }] }),
+  mapped("scatter", [{ x: 1, y: 2 }, { x: 2, y: 3 }, { x: 3, y: 5 }], { xLabel: "spend", yLabel: "sales" }),
+  mapped("histogram", Array.from({ length: 40 }, (_, i) => (i * 7) % 23), { label: "income" }),
+  mapped("ecdf", [1, 2, 2, 3, 5, 8, 13], { label: "wait" }),
 ];
 
 describe("export: every mappable chart reaches every target", () => {
@@ -24,7 +30,7 @@ describe("export: every mappable chart reaches every target", () => {
     it(`${m.chart}: builds a spec and all six outputs`, () => {
       const spec = toSpec(m)!;
       expect(spec.chart).toBe(m.chart);
-      expect(spec.notes).toEqual(["A derivation note."]);
+      expect(spec.notes).toContain("A derivation note.");
       for (const target of TARGETS) {
         const out = emit(spec, target);
         expect(out.target).toBe(target);
@@ -97,6 +103,51 @@ describe("export: what each target emits", () => {
     expect(tree.approximation).toMatch(/no treemap/);
     expect(emit(tree, "matplotlib").body as string).toContain("# Approximation:");
     expect((emit(tree, "vega-lite").body as { usermeta: unknown }).usermeta).toBeTruthy();
+  });
+
+  it("histogram: the bin mark reaches each target with equal-width bins that cover every value", () => {
+    const spec = toSpec(CASES.find((c) => c.chart === "histogram")!)!;
+    const layer = spec.layers[0];
+    expect(layer.mark).toBe("bin");
+    if (layer.mark !== "bin") return;
+    const widths = layer.data.map((d) => (d.x1 as number) - (d.x0 as number));
+    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(1e-9);
+    expect(layer.data.reduce((a, d) => a + (d.y as number), 0)).toBe(40);
+    const vl = emit(spec, "vega-lite").body as { layer: { mark: { type: string }; encoding: { x: { bin: unknown } } }[] };
+    expect(vl.layer[0].encoding.x.bin).toEqual({ binned: true });
+    expect(emit(spec, "observable-plot").body as string).toContain("Plot.rectY");
+    expect(emit(spec, "matplotlib").body as string).toContain(`align="edge"`);
+    expect(emit(spec, "seaborn").body as string).toContain(`align="edge"`);
+    expect(emit(spec, "plotly").body as string).toContain("go.Bar(x=");
+    const ec = emit(spec, "echarts").body as string;
+    expect(ec).toContain("api.coord");
+    expect(ec).not.toContain("__bin__");
+  });
+
+  it("ecdf: is a true step function that ends at 100%", () => {
+    const spec = toSpec(CASES.find((c) => c.chart === "ecdf")!)!;
+    const line = spec.layers.find((l) => l.mark === "line");
+    if (line?.mark !== "line") throw new Error("no line");
+    const ys = line.data.map((d) => d.y as number);
+    expect(ys[ys.length - 1]).toBe(1);
+    expect(line.data[0]).toEqual({ x: 1, y: 0 });
+    // Every corner shares an x with the next point (vertical rise) and then runs flat to the next value.
+    expect(line.data[1].x).toBe(1);
+    expect(line.data.every((d, i) => i === 0 || (d.y as number) >= (line.data[i - 1].y as number))).toBe(true);
+  });
+
+  it("line: a missing value is left out of the export and the note says so", () => {
+    const spec = toSpec(CASES.filter((c) => c.chart === "line")[1])!;
+    expect(spec.notes.join(" ")).toMatch(/Missing periods/);
+    const l = spec.layers[0];
+    if (l.mark !== "line") throw new Error("no line");
+    expect(l.data.filter((d) => d.series === "A")).toHaveLength(3);
+  });
+
+  it("scatter without series still exports to matplotlib without grouping by a series column", () => {
+    const code = emit(toSpec(CASES.find((c) => c.chart === "scatter")!)!, "matplotlib").body as string;
+    expect(code).not.toContain("groupby");
+    expect(code).toContain("ax.scatter");
   });
 
   it("rejects an unknown target with the valid list", () => {

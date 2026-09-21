@@ -1,3 +1,7 @@
+import type { BarData } from "../charts/bar.js";
+import type { LineData } from "../charts/line.js";
+import type { ScatterData } from "../charts/scatter.js";
+import { ecdfSteps, histogramBins } from "../core/bins.js";
 import type { BulletData } from "../charts/bullet.js";
 import type { BumpData } from "../charts/bump.js";
 import type { FootballFieldData } from "../charts/football-field.js";
@@ -135,10 +139,102 @@ function bullet(data: BulletData): ChartSpec {
   };
 }
 
+function bar(data: BarData): ChartSpec {
+  return {
+    chart: "bar",
+    title: "Value by category",
+    notes: [],
+    x: { kind: "linear", zero: true },
+    y: { kind: "category", order: data.map((r) => r.label) },
+    layers: [{ mark: "range", data: data.map((r) => ({ y: r.label, x0: 0, x1: r.value })), tone: "accent" }],
+    size: { width: STYLE.space.width, height: rowChartHeight(data.length) },
+  };
+}
+
+function line(data: LineData, options: Mapped["options"]): ChartSpec {
+  const multi = data.series.length > 1;
+  const rows = (s: LineData["series"][number]): Datum[] =>
+    s.values.flatMap((v, i) => (v === null ? [] : [{ x: data.x[i], y: v, ...(multi ? { series: s.label } : {}) }]));
+  const missing = data.series.some((s) => s.values.some((v) => v === null));
+  return {
+    chart: "line",
+    title: multi ? "Value over time, by series" : `${data.series[0]?.label ?? "Value"} over time`,
+    notes: missing ? ["Missing periods are joined by a straight line in this export; the drawn chart leaves a gap"] : [],
+    // About 8 labels fit under the plot at the shared width.
+    x: { kind: "category", order: data.x, ...(data.x.length > 10 ? { tickEvery: Math.ceil(data.x.length / 8) } : {}) },
+    y: { kind: "linear", ...(options.yLabel ? { title: String(options.yLabel) } : {}), zero: Boolean(options.zeroBaseline) },
+    layers: [{ mark: "line", data: data.series.flatMap(rows), ...(multi ? { colorBySeries: true } : { tone: "accent" as const }), thick: true }],
+    size: XY,
+  };
+}
+
+function scatter(data: ScatterData, options: Mapped["options"]): ChartSpec {
+  return {
+    chart: "scatter",
+    title: `${options.yLabel ?? "y"} against ${options.xLabel ?? "x"}`,
+    notes: [],
+    x: { kind: "linear", ...(options.xLabel ? { title: String(options.xLabel) } : {}), zero: false },
+    y: { kind: "linear", ...(options.yLabel ? { title: String(options.yLabel) } : {}), zero: false },
+    layers: [{ mark: "point", data: data.map((p) => ({ x: p.x, y: p.y })), tone: "accent" }],
+    size: XY,
+  };
+}
+
+function histogram(data: number[], options: Mapped["options"]): ChartSpec {
+  const bins = histogramBins(data, options.bins as number | undefined);
+  return {
+    chart: "histogram",
+    title: `Distribution of ${options.label ?? "values"}`,
+    notes: [`${bins.length} equal-width bins; the shape changes with the bin width`],
+    x: { kind: "linear", ...(options.label ? { title: String(options.label) } : {}), zero: false },
+    y: { kind: "linear", title: "count", zero: true },
+    layers: [{ mark: "bin", data: bins.map((b) => ({ x0: b.x0, x1: b.x1, y: b.count })), tone: "accent" }],
+    size: XY,
+  };
+}
+
+function ecdf(data: number[], options: Mapped["options"]): ChartSpec {
+  const steps = ecdfSteps(data);
+  // Step corners, so every target draws a true step function with a plain line mark.
+  const pts: Datum[] = [];
+  let prev = 0;
+  for (const [v, share] of steps) {
+    pts.push({ x: v, y: prev }, { x: v, y: share });
+    prev = share;
+  }
+  return {
+    chart: "ecdf",
+    title: `Share of ${options.label ?? "values"} at or below each value`,
+    notes: [],
+    x: { kind: "linear", ...(options.label ? { title: String(options.label) } : {}), zero: false },
+    y: { kind: "linear", title: "share of observations", zero: true },
+    layers: [
+      { mark: "rule", axis: "y", value: 0.5, dash: true, tone: "muted" },
+      { mark: "line", data: pts, tone: "accent", thick: true },
+    ],
+    size: XY,
+  };
+}
+
 /** Build a neutral chart spec from a recommender mapping; null for a chart this cannot express. */
 export function toSpec(mapped: Mapped): ChartSpec | null {
   let spec: ChartSpec;
   switch (mapped.chart) {
+    case "bar":
+      spec = bar(mapped.data as BarData);
+      break;
+    case "line":
+      spec = line(mapped.data as LineData, mapped.options);
+      break;
+    case "scatter":
+      spec = scatter(mapped.data as ScatterData, mapped.options);
+      break;
+    case "histogram":
+      spec = histogram(mapped.data as number[], mapped.options);
+      break;
+    case "ecdf":
+      spec = ecdf(mapped.data as number[], mapped.options);
+      break;
     case "concentration-curve":
       spec = concentration(mapped.data as number[], mapped.options);
       break;
@@ -163,5 +259,5 @@ export function toSpec(mapped: Mapped): ChartSpec | null {
     default:
       return null;
   }
-  return { ...spec, notes: mapped.notes.map((n) => n.text) };
+  return { ...spec, notes: [...spec.notes, ...mapped.notes.map((n) => n.text)] };
 }

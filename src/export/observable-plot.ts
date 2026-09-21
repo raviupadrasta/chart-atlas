@@ -8,6 +8,7 @@ function scale(a: Axis): string {
   const parts: string[] = [];
   parts.push(`label: ${js(a.title ?? null)}`, `labelAnchor: "center"`, `labelArrow: "none"`);
   if (a.kind === "category" && a.order) parts.push(`domain: ${js(a.order)}`);
+  if (a.kind === "category" && a.order && a.tickEvery) parts.push(`ticks: ${js(a.order.filter((_, i) => i % a.tickEvery! === 0))}`);
   if (a.reverse) parts.push(`reverse: true`);
   if (a.zero) parts.push(`zero: true`);
   if (a.integer) parts.push(`interval: 1`, `tickFormat: "d"`);
@@ -29,6 +30,8 @@ function mark_(l: Layer, i: number, spec: ChartSpec, m: ReturnType<typeof margin
       return `Plot.dot(${d}, { x: "x", y: "y", fill: ${l.colorBySeries ? `"series"` : fill(l.tone)}, r: ${mark.pointSize / 2} })`;
     case "range":
       return `Plot.barX(${d}, { y: "y", x1: "x0", x2: "x1", fill: ${fill(l.tone)}, ${inset(l.thin ? mark.barThin : mark.barFull)} })`;
+    case "bin":
+      return `Plot.rectY(${d}, { x1: "x0", x2: "x1", y: "y", fill: ${fill(l.tone)}, insetLeft: 0.5, insetRight: 0.5 })`;
     case "tick":
       return `Plot.tickX(${d}, { y: "y", x: "x", stroke: ${fill(l.tone)}, strokeWidth: ${mark.tickWidth} })`;
     case "rule":

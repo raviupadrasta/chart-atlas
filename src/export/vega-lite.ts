@@ -12,7 +12,7 @@ const axisEnc = (a: Axis, ax: "x" | "y", extra: Json = {}): Json => {
   if (a.reverse) Object.assign(scale, { reverse: true, padding: 12 });
   if (a.zero !== undefined && a.kind === "linear") scale.zero = a.zero;
   if (Object.keys(scale).length) enc.scale = scale;
-  if (a.kind === "category") enc.axis = { grid: false, labelAngle: 0 };
+  if (a.kind === "category") enc.axis = { grid: false, labelAngle: 0, ...(a.order && a.tickEvery ? { values: a.order.filter((_, i) => i % a.tickEvery! === 0) } : {}) };
   if (a.integer) enc.axis = { tickMinStep: 1, format: "d" };
   return enc;
 };
@@ -38,6 +38,12 @@ function layer(l: Layer, spec: ChartSpec): Json {
         data: { values: l.data },
         mark: { type: "bar", height: { band: l.thin ? mark.barThin : mark.barFull } },
         encoding: { y: axisEnc(y, "y"), x: axisEnc(x, "x", { field: "x0" }), x2: { field: "x1" }, ...colorEnc(l) },
+      };
+    case "bin":
+      return {
+        data: { values: l.data },
+        mark: { type: "bar", binSpacing: 1 },
+        encoding: { x: axisEnc(x, "x", { field: "x0", bin: { binned: true } }), x2: { field: "x1" }, y: axisEnc(y, "y"), ...colorEnc(l) },
       };
     case "tick":
       return { data: { values: l.data }, mark: { type: "tick", thickness: mark.tickWidth, size: mark.tickLength }, encoding: { y: axisEnc(y, "y"), x: axisEnc(x, "x"), ...colorEnc(l) } };

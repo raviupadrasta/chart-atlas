@@ -14,7 +14,10 @@ function axisLines(spec: ChartSpec): string[] {
   const out: string[] = [];
   const { x, y } = spec;
   const grid = gridAxes(spec);
-  if (x.kind === "category") out.push(`ax.set_xticks(range(len(X_ORDER)))`, `ax.set_xticklabels(X_ORDER)`);
+  if (x.kind === "category") {
+    const k = x.tickEvery ?? 1;
+    out.push(`ax.set_xticks(range(0, len(X_ORDER), ${k}))`, `ax.set_xticklabels(X_ORDER[::${k}])`);
+  }
   if (y.kind === "category") out.push(`ax.set_yticks(range(len(Y_ORDER)))`, `ax.set_yticklabels(Y_ORDER)`, `ax.set_ylim(len(Y_ORDER) - 0.5, -0.5)  # first category at the top`);
   if (y.reverse) out.push(`ax.invert_yaxis()  # rank 1 at the top`);
   if (y.integer) out.push(`ax.yaxis.set_major_locator(MaxNLocator(integer=True))`);
@@ -45,8 +48,9 @@ function layerLines(l: Layer, i: number, spec: ChartSpec, lib: "matplotlib" | "s
       const lw = l.thick ? mark.lineThick : mark.lineThin;
       if (lib === "seaborn") {
         const hue = l.colorBySeries ? `, hue="series", palette=SERIES[:${legendSeries(spec).length}]` : `, color=${tone(l.tone)}`;
-        const units = series && !l.colorBySeries ? `, units="series", estimator=None` : "";
-        return [...prep, `sns.lineplot(data=${d}, x="x", y="y"${hue}${units}, linewidth=${lw}${l.dash ? `, linestyle=(0, DASH)` : ""}, ax=ax)`];
+        // Draw the rows as given: lineplot would otherwise average repeated x values (a step function has them) and add a confidence band.
+        const units = series && !l.colorBySeries ? `, units="series"` : "";
+        return [...prep, `sns.lineplot(data=${d}, x="x", y="y"${hue}${units}, estimator=None, sort=False, linewidth=${lw}${l.dash ? `, linestyle=(0, DASH)` : ""}, ax=ax)`];
       }
       if (series) {
         const c = l.colorBySeries ? `, color=SERIES[i % len(SERIES)]` : `, color=${tone(l.tone)}`;
@@ -56,6 +60,7 @@ function layerLines(l: Layer, i: number, spec: ChartSpec, lib: "matplotlib" | "s
     }
     case "point":
       if (lib === "seaborn") return [...prep, `sns.scatterplot(data=${d}, x="x", y="y"${l.colorBySeries ? `, hue="series", palette=SERIES[:${legendSeries(spec).length}], legend=False` : `, color=${tone(l.tone)}`}, s=${mark.pointSize ** 2}, ax=ax)`];
+      if (!l.data.some((r) => r.series !== undefined)) return [...prep, `ax.scatter(${d}["x"], ${d}["y"], color=${tone(l.tone)}, s=${mark.pointSize ** 2}, alpha=${l.data.length > 200 ? 0.45 : 0.75}, zorder=3)`];
       return [...prep, `for i, (name, g) in enumerate(${d}.groupby("series", sort=False)):`, `    ax.scatter(g["x"], g["y"], color=SERIES[i % len(SERIES)], s=${mark.pointSize ** 2}, zorder=3)`];
     case "range": {
       const h = l.thin ? mark.barThin : mark.barFull;
@@ -63,6 +68,8 @@ function layerLines(l: Layer, i: number, spec: ChartSpec, lib: "matplotlib" | "s
         return [`sns.barplot(data=${d}.assign(y=${d}["y"].map(Y_POS)), x="x1", y="y", orient="h", width=${mark.barFull}, color=${tone(l.tone)}, ax=ax)`];
       return [...prep, `ax.barh(${d}["y"], ${d}["x1"] - ${d}["x0"], left=${d}["x0"], height=${h}, color=${tone(l.tone)})`];
     }
+    case "bin":
+      return [`ax.bar(${d}["x0"], ${d}["y"], width=${d}["x1"] - ${d}["x0"], align="edge", color=${tone(l.tone)}, edgecolor=${py(color.surface)}, linewidth=1)`];
     case "tick":
       return [...prep, `ax.scatter(${d}["x"], ${d}["y"], marker="|", s=${mark.tickLength ** 2}, linewidths=${mark.tickWidth}, color=${tone(l.tone)}, zorder=4)`];
     case "rule":

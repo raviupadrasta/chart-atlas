@@ -17,6 +17,8 @@ export interface Axis {
   reverse?: boolean;
   /** Force the value axis to start at zero (true) or fit the data (false). Omitted: the target's default. */
   zero?: boolean;
+  /** Label every n-th category only (n >= 2), so long period lists do not overprint. */
+  tickEvery?: number;
   /** Whole-number ticks only (ranks). */
   integer?: boolean;
 }
@@ -41,6 +43,8 @@ export type Layer =
   | (LayerBase & { mark: "point"; data: Datum[]; colorBySeries?: boolean })
   /** A horizontal bar from x0 to x1 at category y. */
   | (LayerBase & { mark: "range"; data: Datum[]; thin?: boolean })
+  /** A vertical column from zero to y over the x interval [x0, x1] (a histogram bin). */
+  | (LayerBase & { mark: "bin"; data: Datum[] })
   /** A vertical tick at x on category y (a target, a base case). */
   | (LayerBase & { mark: "tick"; data: Datum[] })
   /** A reference line across the plot. */
