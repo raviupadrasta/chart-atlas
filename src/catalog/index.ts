@@ -1,4 +1,9 @@
 import type { CatalogEntry } from "./types.js";
+import { bar } from "./entries/bar.js";
+import { ecdf } from "./entries/ecdf.js";
+import { histogram } from "./entries/histogram.js";
+import { line } from "./entries/line.js";
+import { scatter } from "./entries/scatter.js";
 import { bcg_matrix } from "./entries/bcg-matrix.js";
 import { bullet } from "./entries/bullet.js";
 import { bump } from "./entries/bump.js";
@@ -21,5 +26,5 @@ export { PLANNED_CATALOG } from "./planned.js";
 
 /** Every chart the recommender may choose from. Add new entries here. */
 export const CATALOG: CatalogEntry[] = [
-  bcg_matrix, bullet, bump, concentration_curve, cost_curve, driver_tree, football_field, impact_effort_matrix, marimekko, radial_badge_bar, sankey, seasonal_overlay, tornado, treemap, waterfall,
+  bar, ecdf, histogram, line, scatter, bcg_matrix, bullet, bump, concentration_curve, cost_curve, driver_tree, football_field, impact_effort_matrix, marimekko, radial_badge_bar, sankey, seasonal_overlay, tornado, treemap, waterfall,
 ];

@@ -1,3 +1,8 @@
+import { barChart } from "../charts/bar.js";
+import { ecdfChart } from "../charts/ecdf.js";
+import { histogramChart } from "../charts/histogram.js";
+import { lineChart } from "../charts/line.js";
+import { scatterChart } from "../charts/scatter.js";
 import { bulletChart } from "../charts/bullet.js";
 import { bumpChart } from "../charts/bump.js";
 import { concentrationCurveChart } from "../charts/concentration-curve.js";
@@ -15,6 +20,11 @@ import type { Candidate, Context, Recommendation } from "./types.js";
 
 type Factory = (el: HTMLElement, data: never, options?: never) => ChartInstance<never, never>;
 const FACTORIES: Record<string, unknown> = {
+  bar: barChart,
+  line: lineChart,
+  scatter: scatterChart,
+  histogram: histogramChart,
+  ecdf: ecdfChart,
   "concentration-curve": concentrationCurveChart,
   treemap: treemapChart,
   "seasonal-overlay": seasonalOverlayChart,

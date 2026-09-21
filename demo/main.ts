@@ -14,6 +14,14 @@ import {
   driverTreeChart,
   seasonalOverlayChart,
   radialBadgeBarChart,
+  barChart,
+  lineChart,
+  scatterChart,
+  histogramChart,
+  ecdfChart,
+  type BarData,
+  type LineData,
+  type ScatterData,
   type BulletData,
   type TreemapData,
   type SankeyData,
@@ -219,6 +227,34 @@ const radialBadgeBarData: RadialBadgeBarData = [
 // widens every element to the intersection of all their .update() signatures when
 // indexed, which rejects every real call. Named consts keep each update() call
 // checked against its own chart's actual data/options type.
+// Baseline charts: sample data is generated with a tiny seeded generator so the page looks the same on every load.
+let seed = 42;
+const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const barData: BarData = [
+  { label: "Downtown", value: 340 },
+  { label: "Suburban", value: 270 },
+  { label: "Airport", value: 210 },
+  { label: "Campus", value: 110 },
+  { label: "Kiosk", value: 45 },
+];
+const lineData: LineData = {
+  x: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"],
+  series: [
+    { label: "Cafe", values: [10, 12, 11, 15, 14, 18, 19, 22] },
+    { label: "Retail", values: [8, 9, 9, 11, null, 12, 13, 13] },
+    { label: "Online", values: [3, 4, 6, 7, 9, 12, 14, 17] },
+  ],
+};
+const scatterData: ScatterData = Array.from({ length: 70 }, () => {
+  const x = rand() * 100;
+  return { x, y: 1.6 * x + (rand() - 0.5) * 50 };
+});
+const sampleValues: number[] = Array.from({ length: 200 }, () => Math.exp(rand() * 3 + 2));
+const barC = barChart(document.getElementById("bar")!, barData, { theme: mode });
+const lineC = lineChart(document.getElementById("line")!, lineData, { theme: mode, yLabel: "Sales, $k", height: 200 });
+const scatterC = scatterChart(document.getElementById("scatter")!, scatterData, { theme: mode, xLabel: "spend", yLabel: "sales" });
+const histogramC = histogramChart(document.getElementById("histogram")!, sampleValues, { theme: mode, label: "order value ($)" });
+const ecdfC = ecdfChart(document.getElementById("ecdf")!, sampleValues, { theme: mode, label: "order value ($)" });
 const bulletC = bulletChart(document.getElementById("bullet")!, bulletData, { theme: mode });
 const treemapC = treemapChart(document.getElementById("treemap")!, treemapData, { theme: mode, height: 220 });
 const sankeyC = sankeyChart(document.getElementById("sankey")!, sankeyData, { theme: mode, height: 200 });
@@ -265,6 +301,11 @@ const refreshRecommender = mountRecommender(document.getElementById("recommender
 
 const updaters = [
   () => refreshRecommender(),
+  () => barC.update(barData, { theme: mode }),
+  () => lineC.update(lineData, { theme: mode }),
+  () => scatterC.update(scatterData, { theme: mode }),
+  () => histogramC.update(sampleValues, { theme: mode }),
+  () => ecdfC.update(sampleValues, { theme: mode }),
   () => bulletC.update(bulletData, { theme: mode }),
   () => treemapC.update(treemapData, { theme: mode }),
   () => sankeyC.update(sankeyData, { theme: mode }),

@@ -1,3 +1,5 @@
+import type { FindingType } from "../profile/types.js";
+
 /**
  * Chart knowledge the recommender reasons over. One entry per chart; the
  * vocabulary below is the contract with docs/insight-taxonomy.md (sections
@@ -65,6 +67,12 @@ export interface CatalogEntry {
   questions: string[];
   /** Purposes the chart serves well; scoring uses this against `context.purpose`. */
   purposes: Purpose[];
+  /**
+   * Profiler findings this chart is built to show, beyond its insight types (a cycle-vs-history chart for
+   * `seasonality`). A view that carries one of them scores the chart higher, and the reason says so. Without
+   * this, two charts serving the same insight type tie on everything but familiarity, and the plain one always wins.
+   */
+  showsFindings?: FindingType[];
   /** Feeds the "soundness" score (utility / soundness / attractiveness). */
   familiarity: Familiarity;
   /** The channel carrying the key comparison. Drives perceptual scoring. */
@@ -90,12 +98,7 @@ export interface CatalogEntry {
 
 /** Charts the catalog may point at that are not built yet (roadmap + baseline set). */
 export const PLANNED_CHARTS = [
-  "bar",
   "stackedBar",
-  "line",
-  "scatter",
-  "histogram",
-  "ecdf",
   "dotPlot",
   "slope",
   "dumbbell",

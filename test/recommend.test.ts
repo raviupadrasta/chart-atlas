@@ -32,10 +32,39 @@ describe("recommend: golden answers", () => {
     expect(marimekko?.because).toMatch(/hierarchy/);
   });
 
-  it("a seasonal series gets the seasonal overlay and reports that a line chart would be better but is not built", () => {
+  it("a seasonal series gets the seasonal overlay (it is built for that finding), with the line as the plain alternative", () => {
     const r = top(seasonal);
     expect(r.chart?.chart).toBe("seasonal-overlay");
-    expect(r.gaps.join(" ")).toMatch(/line: .*not built yet/);
+    expect(r.chart?.reasons.join(" ")).toMatch(/built to show the "seasonality"/);
+    expect(r.alternatives.map((a) => a.chart)).toContain("line");
+    expect(r.gaps).toEqual([]);
+  });
+
+  it("a trend with no cycle gets the plain line chart, not the seasonal overlay", () => {
+    const r = top(Array.from({ length: 36 }, (_, i) => ({ month: month(i), revenue: 100 + i * 3 + ((i * 7) % 5) })));
+    expect(r.chart?.chart).toBe("line");
+    expect(r.chart?.reasons.join(" ")).not.toMatch(/built to show/);
+  });
+
+  it("reachability: every chart the profiler can feed wins on some dataset (adding a general chart must not bury a specialist one)", () => {
+    const rand = rng(21);
+    const winners = new Set<string>();
+    const add = (rows: Record<string, unknown>[], ctx?: Parameters<typeof recommend>[1]) => recommend(profileDataset(rows), ctx, { top: 3 }).forEach((r) => r.chart && winners.add(r.chart.chart));
+    for (const n of [3, 8, 16, 36, 40]) {
+      add(Array.from({ length: n }, (_, i) => ({ k: `K${i}`, v: 100 + i * 3 })));
+      add(Array.from({ length: n }, (_, i) => ({ k: `K${i}`, v: i === 0 ? 5000 : 30 + i })));
+    }
+    for (const n of [10, 25, 60]) {
+      add(Array.from({ length: n }, () => ({ v: Math.exp(rand() * 4) })));
+      add(Array.from({ length: n }, () => { const x = rand() * 100; return { a: x, b: 2 * x + rand() * 30 }; }));
+    }
+    add(seasonal);
+    add(Array.from({ length: 36 }, (_, i) => ({ month: month(i), revenue: 100 + i * 3 + ((i * 7) % 5) })));
+    add(ranks);
+    add([{ m: "DCF", low: 41, high: 58, base: 50 }, { m: "Comps", low: 45, high: 53, base: 49 }, { m: "Prec", low: 49, high: 64, base: 57 }]);
+    add([{ m: "Rev", actual: 71, target: 80 }, { m: "Mar", actual: 38, target: 50 }, { m: "NPS", actual: 60, target: 55 }]);
+    const mustWin = ["bar", "line", "scatter", "histogram", "ecdf", "treemap", "concentration-curve", "seasonal-overlay", "bump", "football-field", "bullet"];
+    for (const id of mustWin) expect(winners.has(id), `${id} never wins`).toBe(true);
   });
 
   it("several series present throughout get the bump chart for rank change", () => {
@@ -45,24 +74,23 @@ describe("recommend: golden answers", () => {
     expect(r.insight.statement).toMatch(/lead changed|lead never changed|climbed|fell/);
   });
 
-  it("a relationship with many points needs a scatter plot, which is not built; the 2x2 matrices are rejected", () => {
+  it("a relationship with many points gets a scatter plot; the 2x2 matrices are rejected", () => {
     const rand = rng(7);
     const rows = Array.from({ length: 40 }, () => {
       const x = rand() * 100;
       return { spend: x, sales: 2 * x + (rand() - 0.5) * 20 };
     });
     const r = top(rows);
-    expect(r.answer).toBe("baseline-needed");
-    expect(r.needed).toBe("scatter");
-    expect(r.chart).toBeUndefined();
+    expect(r.answer).toBe("chart");
+    expect(r.chart?.chart).toBe("scatter");
     expect(r.rejected.map((x) => x.chart)).toEqual(expect.arrayContaining(["bcg-matrix", "impact-effort-matrix"]));
   });
 
-  it("a skewed distribution needs a histogram, with an ECDF as the alternative", () => {
+  it("a skewed distribution gets a histogram, with an ECDF as the alternative", () => {
     const rand = rng(7);
     const r = top(Array.from({ length: 60 }, () => ({ income: Math.exp(rand() * 6 + 2) })));
-    expect(r.answer).toBe("baseline-needed");
-    expect(r.needed).toBe("histogram");
+    expect(r.answer).toBe("chart");
+    expect(r.chart?.chart).toBe("histogram");
     expect(r.alternatives.map((a) => a.chart)).toContain("ecdf");
   });
 
@@ -122,13 +150,31 @@ describe("recommend: golden answers", () => {
     expect(recommend(profileDataset([]))[0].answer).toBe("table");
   });
 
-  it("prefers a stronger encoding and says so: flat spend by department gets a gap for the bar chart", () => {
+  it("prefers a stronger encoding and says so: flat spend by department gets bars, and the treemap loses points (R1)", () => {
     const rows = Array.from({ length: 12 }, (_, i) => ({ dept: `D${i}`, spend: 100 + i * i * 6 }));
     const r = top(rows);
-    expect(r.chart?.chart).toBe("treemap");
-    expect(r.gaps.join(" ")).toMatch(/bar: /);
-    expect(r.chart?.reasons.join(" ")).toMatch(/R1/);
-    expect(r.caveats.some((c) => c.id === "known-issue:treemap")).toBe(true);
+    expect(r.chart?.chart).toBe("bar");
+    const treemap = r.alternatives.find((a) => a.chart === "treemap");
+    expect(treemap?.reasons.join(" ")).toMatch(/R1/);
+    expect(treemap!.score).toBeLessThan(r.chart!.score);
+  });
+
+  it("few values get bars for a ranking, not a histogram or a distribution chart", () => {
+    const r = top(Array.from({ length: 6 }, (_, i) => ({ team: `T${i}`, sales: 10 + i * 7 })));
+    expect(r.chart?.chart).toBe("bar");
+  });
+
+  it("a histogram needs 30 values; 8 to 29 get the ECDF, which shows every point", () => {
+    const rand = rng(3);
+    const small = top(Array.from({ length: 20 }, () => ({ v: rand() * 10 })));
+    expect(small.chart?.chart).toBe("ecdf");
+    expect(small.rejected.find((x) => x.chart === "histogram")?.because).toMatch(/fewer than the 30/);
+  });
+
+  it("a rank story still gets the bump chart, not the line chart, even though the line is built", () => {
+    const r = top(ranks);
+    expect(r.chart?.chart).toBe("bump");
+    expect(r.alternatives.map((a) => a.chart)).toContain("line");
   });
 });
 
@@ -166,8 +212,9 @@ describe("recommend: context, questions and output shape", () => {
   });
 
   it("a specialist chart scores lower for a public audience than for an expert one", () => {
-    const expert = top(seasonal, { audience: "expert" }).chart!.score;
-    const pub = top(seasonal, { audience: "public" }).chart!.score;
+    const score = (audience: "expert" | "public") => top(seasonal, { audience }).chart!.score;
+    const expert = score("expert");
+    const pub = score("public");
     expect(pub).toBeLessThan(expert);
   });
 

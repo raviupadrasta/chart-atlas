@@ -27,6 +27,8 @@ const HARD_ROW_LIMIT = 1.5;
 const GAP_MARGIN = 3;
 /** Score taken off a chart when an acceptable alternative encodes the same insight by a clearly stronger channel (R1). */
 const ENCODING_PENALTY = 8;
+/** Score added when the view carries a finding the chart is built to show (see `CatalogEntry.showsFindings`). */
+const FINDING_BONUS = 8;
 const r1 = (x: number) => Number(x.toFixed(1));
 
 export function resolveContext(ctx: Context = {}): ResolvedContext {
@@ -136,6 +138,15 @@ function recommendView(view: View, cols: Map<string, ColumnProfile>, rawCtx: Con
       .map((o) => score(entry, o, view, ctx, verdict.fit, verdict.overrides))
       .sort((a, b) => b.score - a.score)[0];
     accepted.push(best);
+  }
+  // A chart built for a finding the view actually has (a cycle chart for a seasonal series) gains on the general one.
+  const byId = new Map([...CATALOG, ...PLANNED_CATALOG].map((e) => [e.id, e]));
+  for (const c of accepted) {
+    const shown = byId.get(c.chart)?.showsFindings?.find((t) => view.findings.some((f) => f.type === t));
+    if (shown) {
+      c.score = r1(c.score + FINDING_BONUS);
+      c.reasons.push(`gains points: built to show the "${shown}" this data has`);
+    }
   }
   // R1 (Default tier): prefer position/length over angle/area for the key comparison. A chart loses points
   // when another acceptable chart, for an insight of similar weight, uses a clearly stronger channel.

@@ -14,6 +14,20 @@ type Case = {
   mutate?: (chart: atlas.ChartInstance<any, any>, theme: "light" | "dark") => void;
 };
 
+const barData: atlas.BarData = [
+  { label: "Downtown", value: 34 },
+  { label: "Suburban", value: 27 },
+  { label: "Airport", value: 21 },
+  { label: "Campus", value: 11 },
+  { label: "Kiosk", value: -3 },
+];
+const lineData: atlas.LineData = {
+  x: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+  series: [{ label: "Cafe", values: [10, 12, null, 15, 14, 18] }, { label: "Retail", values: [8, 9, 9, 11, 10, 12] }],
+};
+const scatterData: atlas.ScatterData = Array.from({ length: 30 }, (_, i) => ({ x: i, y: (i * 7) % 13 + i / 3, label: `s${i}` }));
+const samples: number[] = Array.from({ length: 60 }, (_, i) => Math.round(20 + 15 * Math.sin(i) + i / 4));
+
 const bullet: atlas.BulletData = [
   { label: "Revenue $M", ranges: [42, 68], actual: 71, target: 80, max: 100 },
   { label: "Gross margin %", ranges: [30, 45], actual: 38, target: 50, max: 60 },
@@ -168,6 +182,11 @@ const radialBadge = [
 ];
 
 const cases: Case[] = [
+  { name: "barChart", run: (el, t) => atlas.barChart(el, barData, { theme: t }), mutate: (c, t) => c.update(barData.slice(0, 3), { theme: t }) },
+  { name: "lineChart", run: (el, t) => atlas.lineChart(el, lineData, { theme: t, yLabel: "Sales" }), mutate: (c, t) => c.update(lineData, { theme: t, zeroBaseline: true }) },
+  { name: "scatterChart", run: (el, t) => atlas.scatterChart(el, scatterData, { theme: t, xLabel: "x", yLabel: "y" }), mutate: (c, t) => c.update(scatterData.slice(0, 10), { theme: t }) },
+  { name: "histogramChart", run: (el, t) => atlas.histogramChart(el, samples, { theme: t, label: "value" }), mutate: (c, t) => c.update(samples, { theme: t, bins: 8 }) },
+  { name: "ecdfChart", run: (el, t) => atlas.ecdfChart(el, samples, { theme: t, label: "value" }), mutate: (c, t) => c.update(samples, { theme: t }) },
   { name: "bulletChart", run: (el, t) => atlas.bulletChart(el, bullet, { theme: t }),
     mutate: (c, t) => c.update(bullet.map((r) => ({ ...r, actual: r.actual * 0.9 })), { theme: t }) },
   { name: "treemapChart", run: (el, t) => atlas.treemapChart(el, treemap, { theme: t, height: 220 }),
@@ -209,7 +228,7 @@ function mount(): HTMLDivElement {
 }
 
 describe("dummy-data smoke test — every exported chart, both themes", () => {
-  it("exports exactly the 15 chart factories under test", () => {
+  it("exports exactly the 20 chart factories under test", () => {
     const factoryNames = Object.keys(atlas).filter((k) => k.endsWith("Chart"));
     expect(new Set(factoryNames)).toEqual(new Set(cases.map((c) => c.name)));
   });

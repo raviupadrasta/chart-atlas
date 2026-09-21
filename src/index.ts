@@ -58,6 +58,18 @@ export type {
 export { radialBadgeBarChart } from "./charts/radial-badge-bar.js";
 export type { RadialBadgeBarData, RadialBadgeBarRow, RadialBadgeBarOptions } from "./charts/radial-badge-bar.js";
 
+// Baseline charts
+export { barChart } from "./charts/bar.js";
+export type { BarData, BarRow, BarOptions } from "./charts/bar.js";
+export { lineChart } from "./charts/line.js";
+export type { LineData, LineSeries, LineOptions } from "./charts/line.js";
+export { scatterChart } from "./charts/scatter.js";
+export type { ScatterData, ScatterPoint, ScatterOptions } from "./charts/scatter.js";
+export { histogramChart } from "./charts/histogram.js";
+export type { HistogramData, HistogramOptions } from "./charts/histogram.js";
+export { ecdfChart } from "./charts/ecdf.js";
+export type { EcdfData, EcdfOptions } from "./charts/ecdf.js";
+
 // Recommender inputs: the data profiler and the chart catalog
 export { profileDataset, profileColumn } from "./profile/index.js";
 export type {

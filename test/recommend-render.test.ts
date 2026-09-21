@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { profileDataset } from "../src/profile/index.js";
 import { FED_BY, MAPPABLE_CHARTS, mapView, recommendAndRender } from "../src/recommend/index.js";
 import type { SeasonalOverlayData } from "../src/charts/seasonal-overlay.js";
+import type { LineData } from "../src/charts/line.js";
 import type { BumpData } from "../src/charts/bump.js";
 import type { BulletData } from "../src/charts/bullet.js";
 import { THEMES } from "../src/theme/tokens.js";
@@ -35,36 +36,58 @@ describe("recommendAndRender: end to end", () => {
     expect(el.innerHTML).toBe("");
   });
 
-  it("maps a monthly series into one line per year, marks the latest as current, and labels the months", () => {
+  it("draws a line chart for a monthly series, labelled by month", () => {
     const el = mount();
-    const out = recommendAndRender(el, seasonal(0, 36), undefined, { theme: "light" });
+    const trend = Array.from({ length: 36 }, (_, i) => ({ month: month(2021, i), revenue: 100 + i * 3 + ((i * 7) % 5) }));
+    const out = recommendAndRender(el, trend, undefined, { theme: "light" });
     expect(out.rendered).toBe("chart");
-    expect(out.mapping?.chart).toBe("seasonal-overlay");
-    const data = out.mapping!.data as SeasonalOverlayData;
+    expect(out.mapping?.chart).toBe("line");
+    const data = out.mapping!.data as LineData;
+    expect(data.x).toHaveLength(36);
+    expect(data.x[0]).toBe("Jan 21");
+    expect(data.series).toHaveLength(1);
+    expect(data.series[0].label).toBe("revenue");
+    expect(el.querySelector("polyline")).not.toBeNull();
+  });
+
+  it("maps a monthly series into one line per year for the seasonal overlay, marks the latest as current, and labels the months", () => {
+    const rows = seasonal(0, 36);
+    const p = profileDataset(rows);
+    const view = p.views.find((v) => v.kind === "measure-over-time")!;
+    const m = mapView("seasonal-overlay", rows, view, p)!;
+    const data = m.data as SeasonalOverlayData;
     expect(data.map((d) => d.label)).toEqual(["2021", "2022", "2023"]);
     expect(data.every((d) => d.points.length === 12)).toBe(true);
     expect(data[2].emphasis).toBe("current");
     expect(data[0].emphasis).toBeUndefined();
-    expect((out.mapping!.options.xTickLabels as string[])[0]).toBe("Jan");
-    expect(out.caveats.some((c) => c.id === "raw-values")).toBe(true);
+    expect((m.options.xTickLabels as string[])[0]).toBe("Jan");
+    expect(m.notes.some((c) => c.id === "raw-values")).toBe(true);
   });
 
-  it("drops an incomplete first year and says so", () => {
-    const el = mount();
-    const out = recommendAndRender(el, seasonal(3, 45), undefined, { theme: "light" }); // April 2021 to December 2024
-    const data = out.mapping!.data as SeasonalOverlayData;
+  it("the seasonal overlay drops an incomplete first year and says so", () => {
+    const rows = seasonal(3, 45); // April 2021 to December 2024
+    const p = profileDataset(rows);
+    const m = mapView("seasonal-overlay", rows, p.views.find((v) => v.kind === "measure-over-time")!, p)!;
+    const data = m.data as SeasonalOverlayData;
     expect(data.map((d) => d.label)).toEqual(["2022", "2023", "2024"]);
-    expect(out.caveats.some((c) => c.id === "cycles-dropped")).toBe(true);
-    expect(data.every((d) => d.points.length === 12)).toBe(true);
+    expect(m.notes.some((c) => c.id === "cycles-dropped")).toBe(true);
   });
 
-  it("falls back to a table with a message when the data cannot feed the chosen chart (only two cycles)", () => {
-    const el = mount();
-    const out = recommendAndRender(el, seasonal(0, 24), undefined, { theme: "light" });
-    expect(out.rendered).toBe("table");
-    expect(out.message).toMatch(/No built chart could be drawn/);
-    expect(el.querySelector("table")).not.toBeNull();
-    expect(el.querySelector("svg")).toBeNull();
+  it("draws the seasonal overlay for a seasonal series", () => {
+    const out = recommendAndRender(mount(), seasonal(0, 36), undefined, { theme: "light" });
+    expect(out.rendered).toBe("chart");
+    expect(out.mapping?.chart).toBe("seasonal-overlay");
+  });
+
+  it("the seasonal overlay refuses two cycles (too few to compare), so the line chart is drawn instead and the message says so", () => {
+    const rows = seasonal(0, 24);
+    const p = profileDataset(rows);
+    const view = p.views.find((v) => v.kind === "measure-over-time")!;
+    expect(mapView("seasonal-overlay", rows, view, p)).toBeNull();
+    const out = recommendAndRender(mount(), rows, undefined, { theme: "light" });
+    expect(out.rendered).toBe("chart");
+    expect(out.mapping?.chart).toBe("line");
+    expect(out.message).toMatch(/first choice could not be built/);
   });
 
   it("computes ranks per period from the values for the bump chart", () => {
@@ -130,7 +153,7 @@ describe("recommendAndRender: end to end", () => {
     expect(el.querySelector("svg")).toBeNull();
   });
 
-  it("when the right chart is not built, says which one and shows the data as a table", () => {
+  it("draws a scatter plot for two related measures, labelled with the column names", () => {
     let seed = 5;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     const rows = Array.from({ length: 40 }, () => {
@@ -139,10 +162,40 @@ describe("recommendAndRender: end to end", () => {
     });
     const el = mount();
     const out = recommendAndRender(el, rows, undefined, { theme: "light" });
-    expect(out.recommendation.answer).toBe("baseline-needed");
-    expect(out.rendered).toBe("table");
-    expect(out.message).toMatch(/scatter plot/);
-    expect(el.querySelector("figcaption")?.textContent).toMatch(/scatter plot/);
+    expect(out.rendered).toBe("chart");
+    expect(out.mapping?.chart).toBe("scatter");
+    expect(el.querySelectorAll("circle")).toHaveLength(40);
+    expect(new Set([out.mapping!.options.xLabel, out.mapping!.options.yLabel])).toEqual(new Set(["spend", "sales"]));
+  });
+
+  it("draws a histogram for a distribution and an ECDF for a small one", () => {
+    let seed = 9;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const big = recommendAndRender(mount(), Array.from({ length: 80 }, () => ({ income: Math.exp(rand() * 3) })), undefined, { theme: "light" });
+    expect(big.mapping?.chart).toBe("histogram");
+    expect((big.mapping!.data as number[]).length).toBe(80);
+    const el = mount();
+    const small = recommendAndRender(el, Array.from({ length: 15 }, () => ({ v: rand() * 10 })), undefined, { theme: "light" });
+    expect(small.mapping?.chart).toBe("ecdf");
+    expect(el.querySelector("path")).not.toBeNull();
+  });
+
+  it("draws bars for a category ranking, in the profiler's order", () => {
+    const rows = Array.from({ length: 6 }, (_, i) => ({ team: `T${i}`, sales: 10 + i * 7 }));
+    const el = mount();
+    const out = recommendAndRender(el, rows, undefined, { theme: "light" });
+    expect(out.mapping?.chart).toBe("bar");
+    expect((out.mapping!.data as { label: string }[]).map((r) => r.label)).toEqual(["T5", "T4", "T3", "T2", "T1", "T0"]);
+    expect(el.querySelectorAll("rect").length).toBeGreaterThan(6);
+  });
+
+  it("draws several series as separate lines, capped at 5 with a note", () => {
+    const rows = Array.from({ length: 12 }, (_, i) => Array.from({ length: 7 }, (_, j) => ({ month: month(2024, i), team: `T${j}`, score: 50 + j * 5 + ((i * (j + 2)) % 7) }))).flat();
+    const p = profileDataset(rows);
+    const view = p.views.find((v) => v.kind === "measure-over-time" && v.columns.series)!;
+    const m = mapView("line", rows, view, p)!;
+    expect((m.data as LineData).series).toHaveLength(5);
+    expect(m.notes.some((n) => n.id === "top-series")).toBe(true);
   });
 
   it("annotate: false draws just the chart", () => {
@@ -160,10 +213,14 @@ describe("recommendAndRender: end to end", () => {
   });
 
   it("puts the chosen chart's own known issues in the caption", () => {
-    const rows = Array.from({ length: 12 }, (_, i) => ({ dept: `D${i}`, spend: 100 + i * i * 6 }));
+    const rows = [
+      { method: "DCF", low: 41, high: 58 },
+      { method: "Comps", low: 45, high: 53 },
+      { method: "Precedent", low: 49, high: 64 },
+    ];
     const out = recommendAndRender(mount(), rows, undefined, { theme: "light" });
-    expect(out.mapping?.chart).toBe("treemap");
-    expect(out.caveats.some((c) => c.id === "known-issue:treemap")).toBe(true);
+    expect(out.mapping?.chart).toBe("football-field");
+    expect(out.caveats.some((c) => c.id === "known-issue:football-field")).toBe(true);
   });
 });
 

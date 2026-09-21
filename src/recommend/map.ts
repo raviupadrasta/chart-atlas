@@ -1,3 +1,6 @@
+import type { BarData } from "../charts/bar.js";
+import type { LineData } from "../charts/line.js";
+import type { ScatterData } from "../charts/scatter.js";
 import type { BumpData } from "../charts/bump.js";
 import type { BulletData } from "../charts/bullet.js";
 import type { FootballFieldData } from "../charts/football-field.js";
@@ -193,11 +196,90 @@ function bullet(ctx: Ctx, view: View): Mapped | null {
   };
 }
 
+function bar(view: View): Mapped | null {
+  if (!view.values?.length) return null;
+  const data: BarData = view.values.map((v) => ({ label: v.label, value: v.value }));
+  return { chart: "bar", data, options: {}, notes: [] };
+}
+
+const MAX_LINES = 5;
+
+function line(ctx: Ctx, view: View): Mapped | null {
+  const time = ctx.col(view.columns.time);
+  const meas = ctx.col(view.columns.measure);
+  const seriesCol = ctx.col(view.columns.series);
+  if (!time || !meas) return null;
+  const gran = time.temporal?.granularity;
+  const notes: Caveat[] = [];
+  let data: LineData;
+  if (!seriesCol) {
+    const pooled = timeSeriesOf(ctx, view);
+    if (!pooled || pooled.length < 2) return null;
+    const multiYear = new Set(pooled.map((p) => new Date(p.t).getUTCFullYear())).size > 1;
+    data = { x: pooled.map((p) => periodLabel(p.t, gran, multiYear)), series: [{ label: meas.name, values: pooled.map((p) => p.v) }] };
+  } else {
+    const rows: { t: number; s: string; v: number }[] = [];
+    for (const r of ctx.rows) {
+      const v = toNumber(r[meas.name]);
+      const t = toTime(r[time.name], time);
+      if (v === null || t === null || isMissing(r[seriesCol.name])) continue;
+      rows.push({ t, v, s: String(r[seriesCol.name]).trim() });
+    }
+    const how = isAdditive(meas) ? "sum" : "mean";
+    const cells = [...group(rows, (r) => `${r.t}|${r.s}`).values()].map((rs) => ({ t: rs[0].t, s: rs[0].s, v: combine(rs.map((r) => r.v), how) }));
+    const means = [...group(cells, (c) => c.s).entries()].map(([s, cs]) => ({ s: String(s), mean: cs.reduce((a, c) => a + c.v, 0) / cs.length }));
+    means.sort((a, b) => b.mean - a.mean || (a.s < b.s ? -1 : 1));
+    let keep = means.map((m) => m.s);
+    if (keep.length > MAX_LINES) {
+      keep = keep.slice(0, MAX_LINES);
+      notes.push(note("top-series", `Only the ${MAX_LINES} series with the highest average ${meas.name} are drawn, of ${means.length}`));
+    }
+    const times = [...new Set(cells.map((c) => c.t))].sort((a, b) => a - b);
+    const multiYear = new Set(times.map((t) => new Date(t).getUTCFullYear())).size > 1;
+    const lookup = new Map(cells.map((c) => [`${c.t}|${c.s}`, c.v]));
+    data = { x: times.map((t) => periodLabel(t, gran, multiYear)), series: keep.map((s) => ({ label: s, values: times.map((t) => lookup.get(`${t}|${s}`) ?? null) })) };
+  }
+  return { chart: "line", data, options: {}, notes };
+}
+
+function numericPairs(ctx: Ctx, a: string, b: string): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  for (const r of ctx.rows) {
+    const x = toNumber(r[a]);
+    const y = toNumber(r[b]);
+    if (x !== null && y !== null) out.push({ x, y });
+  }
+  return out;
+}
+
+function scatter(ctx: Ctx, view: View): Mapped | null {
+  const { x, y } = view.columns;
+  if (!x || !y) return null;
+  const data: ScatterData = numericPairs(ctx, x, y);
+  return data.length ? { chart: "scatter", data, options: { xLabel: x, yLabel: y }, notes: [] } : null;
+}
+
+function values(ctx: Ctx, view: View, chart: "histogram" | "ecdf"): Mapped | null {
+  const m = view.columns.measure;
+  if (!m) return null;
+  const data = ctx.rows.map((r) => toNumber(r[m])).filter((v): v is number => v !== null);
+  return data.length ? { chart, data, options: { label: m }, notes: [] } : null;
+}
+
 /** Map a view to the data shape of the chosen built chart. Returns null if the view cannot feed it. */
 export function mapView(chartId: string, rows: Row[], view: View, profile: DatasetProfile): Mapped | null {
   const cols = new Map(profile.columns.map((c) => [c.name, c]));
   const ctx: Ctx = { rows, col: (n) => (n ? cols.get(n) : undefined) };
   switch (chartId) {
+    case "bar":
+      return bar(view);
+    case "line":
+      return line(ctx, view);
+    case "scatter":
+      return scatter(ctx, view);
+    case "histogram":
+    case "ecdf":
+      return values(ctx, view, chartId);
     case "concentration-curve":
       return concentrationCurve(view);
     case "treemap":
@@ -219,6 +301,11 @@ export function mapView(chartId: string, rows: Row[], view: View, profile: Datas
 
 /** Which kinds of view each built chart can be fed from today; the recommender rejects a built chart outside this. */
 export const FED_BY: Record<string, ViewKind[]> = {
+  bar: ["measure-by-category"],
+  line: ["measure-over-time"],
+  scatter: ["relationship"],
+  histogram: ["distribution"],
+  ecdf: ["distribution"],
   "concentration-curve": ["measure-by-category"],
   treemap: ["measure-by-category"],
   "seasonal-overlay": ["measure-over-time"],
@@ -229,4 +316,4 @@ export const FED_BY: Record<string, ViewKind[]> = {
 };
 
 /** Chart ids mapView can feed today. */
-export const MAPPABLE_CHARTS = ["concentration-curve", "treemap", "seasonal-overlay", "bump", "football-field", "tornado", "bullet"] as const;
+export const MAPPABLE_CHARTS = ["bar", "line", "scatter", "histogram", "ecdf", "concentration-curve", "treemap", "seasonal-overlay", "bump", "football-field", "tornado", "bullet"] as const;

@@ -11,6 +11,7 @@ export const seasonal_overlay: CatalogEntry = {
     "Is this cycle normal compared with history?",
     "Is the current year running above or below its usual range?",
   ],
+  showsFindings: ["seasonality"],
   purposes: ["monitor", "explain"],
   familiarity: "specialist",
   primaryEncoding: "position",

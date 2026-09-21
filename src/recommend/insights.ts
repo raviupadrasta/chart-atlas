@@ -19,6 +19,9 @@ export function insightsFor(view: View): InsightOption[] {
       return out;
     }
     case "measure-over-time": {
+      // When the profiler found a rank story (it replaces the trend findings with rank ones), the ranks are the
+      // insight; the values over time are the fallback.
+      if (s.has("rankOverTime") && has("rank-shift")) return [{ type: "rank-change", weight: 1 }, { type: "change-over-time", weight: 0.75 }];
       const out: InsightOption[] = [{ type: "change-over-time", weight: 1 }];
       if (s.has("rankOverTime")) out.push({ type: "rank-change", weight: 0.9 });
       return out;
