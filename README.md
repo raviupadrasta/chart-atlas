@@ -73,9 +73,9 @@ r.answer;                // "chart" | "table" | "number" | "baseline-needed"
 r.insight.statement;     // "The top 2 of 9 categories account for 80% of the total"
 r.chart?.chart;          // "concentration-curve"
 r.chart?.reasons;        // why it fits
-r.alternatives;          // other candidates, including charts not built yet (built: false)
+r.alternatives;          // other candidates, including any chart not built yet (built: false)
 r.rejected;              // e.g. { chart: "marimekko", because: "needs hierarchy, ..." }
-r.gaps;                  // e.g. "line: would be the better choice but is not built yet"
+r.gaps;                  // planned charts that would beat the built choice (none today: all baseline charts exist)
 r.caveats;               // e.g. "36 rows were combined into 3 categories by summing revenue"
 r.questionsForUser;      // e.g. "How was revenue measured, and by whom?"
 ```
@@ -143,15 +143,13 @@ font: {
 
 | Piece | State |
 |---|---|
-| 15 charts (bullet, treemap, sankey, waterfall, tornado, football field, concentration curve, marimekko, cost curve, BCG and impact/effort matrices, bump, driver tree, seasonal overlay, radial badge bar) | Built, tested |
+| 20 charts: the 15 specialist ones (bullet, treemap, sankey, waterfall, tornado, football field, concentration curve, marimekko, cost curve, BCG and impact/effort matrices, bump, driver tree, seasonal overlay, radial badge bar) plus the 5 baseline charts (bar, line, scatter, histogram, ECDF) | Built, tested |
 | Chart catalog: what each chart is for, needs, and when not to use it (`src/catalog/`) | Built, tested |
 | Rendering-honesty audit: mark sizes proportional to values ("lie factor") (`test/lie-factor.test.ts`) | Built; 2 defects fixed, 4 known and pinned as expected failures |
 | Data profiler with ranked views, findings and caveats (`src/profile/`) | Built (columns, six view kinds); structure detection for hierarchy, flow and paired data not yet |
 | Recommender: rules, scoring, rationale, "table or number" answers (`src/recommend/`) | First version built; weights untuned |
-| Mapping a recommendation into a chart's data shape and drawing it (`recommendAndRender`; 7 of the 15 charts) | Built; `npm run dev` has a Recommender card to try it |
-| Export a recommendation to Vega-Lite, Observable Plot, ECharts, matplotlib, seaborn or Plotly (`recommendAndExport`, `src/export/`), all sharing one style file (`src/export/style.ts`) | Built, tested; 7 of the 15 charts |
-| Baseline charts (bar, line, scatter, histogram, ECDF) | Planned; the catalog already names them as gaps |
-| "Focus versus peers" chart (one series over a band of many, plus a rank panel), for cases like one fund among 45 | Designed, not built; see [NEXT.md](./NEXT.md) |
+| Mapping a recommendation into a chart's data shape and drawing it (`recommendAndRender`; 12 of the 20 charts) | Built; `npm run dev` has a Recommender card to try it |
+| Export a recommendation to Vega-Lite, Observable Plot, ECharts, matplotlib, seaborn or Plotly (`recommendAndExport`, `src/export/`), all sharing one style file (`src/export/style.ts`) | Built, tested; 12 of the 20 charts |
 | Claude skill that frames the insight and writes the rationale | Planned |
 | npm package, docs site | Not started |
 
@@ -301,13 +299,18 @@ chart.destroy();
 
 ## Charts
 
-All 15 take `(container, data, options)` and return a `ChartInstance`. `options`
+All 20 take `(container, data, options)` and return a `ChartInstance`. `options`
 always includes `theme` (see below); chart-specific options are listed here.
 Full field docs are in the exported types (`BulletData`, `WaterfallOptions`, …).
 
 | Factory | Data shape | Key options | Reach for it when |
 |---|---|---|---|
 | `bulletChart` | `{ label, ranges: [n,n], actual, target, max? }[]` | `rowHeight`, `colorIndex` | A KPI vs. a target *and* a qualitative good/ok/poor band, one row each. |
+| `barChart` | `{ label, value }[]` | `height`, `format` | Comparing amounts across categories; horizontal bars from zero, every value written at the bar end. |
+| `lineChart` | `{ x: string[], series: { label, values: (number \| null)[] }[] }` | `height`, `zeroBaseline`, `yLabel` | A value over time; end-labelled lines, a gap (not zero) for a missing period. |
+| `scatterChart` | `{ x, y, label? }[]` | `height`, `xLabel`, `yLabel` | Whether two measures move together; semi-transparent dots so overlaps show. |
+| `histogramChart` | `number[]` (raw values) | `height`, `bins`, `label` | The shape of one measure; equal-width bins (Freedman-Diaconis, 5 to 40) from zero, bin count stated. |
+| `ecdfChart` | `number[]` (raw values) | `height`, `label` | The share of values at or below each value, with no binning choice; the 50% line marks the median. |
 | `treemapChart` | nested `{ name, value?, children? }` | `height`, `gap` | Part-to-whole where relative area matters more than exact ranking. |
 | `sankeyChart` | `{ nodes: [{id,label,colorIndex?}], links: [{source,target,value}] }` | `height`, `nodeWidth` | A quantity splitting/merging through stages; ribbon width = value. |
 | `waterfallChart` | `{ label, value, isTotal? }[]` | `height` | A start total → end total bridge through signed contributions. |
